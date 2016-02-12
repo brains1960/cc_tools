@@ -1,130 +1,142 @@
+"""
+cc_dat_utils modified to read and convert json data
+"""
 import json
 import cc_data
-import cc_dat_utils
-import sys
 
-def make_field_from_json(field_type,field_data):
-    #Check what field type then returning the corresponding Data
+# Constructs fields (title, traps, cloning machines, password (enc/reg), hint, monsters)
+def make_field_from_json(field_type, field_data):
+    """Constructs and returns the appropriate optional field
+    Args:
+        field_type (int) : what type of field to construct
+        field_data : the json data to be used to create the field
+    """
+    # field_data is title
     if field_type == cc_data.CCMapTitleField.TYPE:
         return cc_data.CCMapTitleField(field_data)
-    elif field_type == cc_data.CCMapHintField.TYPE:
-        return cc_data.CCMapHintField(field_data)
-    elif field_type == cc_data.CCPasswordField.TYPE:
-        return cc_data.CCPasswordField(field_data)
-    elif field_type == cc_data.CCEncodedPasswordField.TYPE:
-        #Finds create the password field from data in json
-        password = []
-        for i in field_data:
-            password.append(i)
-        return cc_data.CCEncodedPasswordField(password)
+
+    # field_data is list-dict(button/trap)-list(coordinates)
     elif field_type == cc_data.CCTrapControlsField.TYPE:
         traps = []
+        # account for more than 1 trap
         for i in field_data:
-            button_x = i["trap"][0]["button"][0]
-            button_y = i["trap"][0]["button"][1]
-            
-            trap_x = i["trap"][0]["trap"][0]
-            trap_y = i["trap"][0]["trap"][1]
-            
-            traps.append(cc_data.CCTrapControl(button_x,button_y,
-                                               trap_x,trap_y))
-        
+            trap = i["trap"][0]
+            #button coordinate (bx, by)
+            bx = trap["button"][0]
+            by = trap["button"][1]
+            #trap coordinate (tx, ty)
+            tx = trap["trap"][0]
+            ty = trap["trap"][1]
+            #add coordinates to the list of traps
+            traps.append(cc_data.CCTrapControl(bx,by,tx,ty))
         return  cc_data.CCTrapControlsField(traps)
+    
+    
     elif field_type == cc_data.CCCloningMachineControlsField.TYPE:
         machines = []
+        # account for more than 1 machine
         for i in field_data:
-            button_x = i["machine"][0]["button"][0]
-            button_y = i["machine"][0]["button"][1]
- 
-            trap_x = i["machine"][0]["machine"][0]
-            trap_y = i["machine"][0]["machine"][1]
-            
-            machines.append(cc_data.CCCloningMachineControl(button_x,button_y,
-                                                            trap_x,trap_y))
-        
+            machine = i["machine"][0]
+            #button coordinates (bx, by)
+            bx = machine["button"][0]
+            by = machine["button"][1]
+            #trap coordinates (tx, ty)
+            tx = machine["machine"][0]
+            ty = machine["machine"][1]
+            #add coordinates to the list of traps
+            machines.append(cc_data.CCCloningMachineControl(bx,by,tx,ty))
         return  cc_data.CCCloningMachineControlsField(machines)
+
+    # field_data is list of ints
+    elif field_type == cc_data.CCEncodedPasswordField.TYPE:
+        return cc_data.CCEncodedPasswordField(field_data)
+
+    # field_data is hint string
+    elif field_type == cc_data.CCMapHintField.TYPE:
+        return cc_data.CCMapHintField(field_data)
+
+    # field_data is pass string
+    elif field_type == cc_data.CCPasswordField.TYPE:
+        return cc_data.CCPasswordField(field_data)
+
+    # field_data is list-dict("monster")- list (coordinates)
     elif field_type == cc_data.CCMonsterMovementField.TYPE:
         monsters = []
         for i in field_data:
-            monster_x = i["monster"][0]
-            monster_y = i["monster"][1]
-            monsters.append(cc_data.CCCoordinate(monster_x, monster_y))
+            monster = i["monster"]
+            mx = monster[0]
+            my = monster[1]
+            monsters.append(cc_data.CCCoordinate(mx, my))
         return cc_data.CCMonsterMovementField(monsters)
+
+    # Unknown field type
     else:
         if __debug__:
             raise AssertionError("Unknown field type: " + str(field_type))
         return cc_data.CCField(field_type, field_data)
 
-
-
-def make_optional_fields_from_json(json_level):
-    #Check for remaining optional fields from the level
+#Finds fields to make from level data
+def make_optional_fields_from_json(level_data):
+    
     fields = []
-    
-    if("Map Title Field" in json_level):
-        map_title = json_level['Map Title Field']
-        fields.append(make_field_from_json(3,map_title))
-
-    if("Encoded Password Field" in json_level):
-        level_password = json_level['Encoded Password Field']
-        fields.append(make_field_from_json(6, level_password))
-
-    if("Password Field" in json_level):
-        level_password = json_level['Password Field']
-        fields.append(make_field_from_json(8, level_password))
-    
-    if("Map Hint Field" in json_level):
-        level_hint = json_level['Map Hint Field']
-        fields.append(make_field_from_json(7,level_hint))
-    
-    if("Trap Controls Field" in json_level):
-        level_traps = json_level['Trap Controls Field']
-        fields.append(make_field_from_json(4, level_traps))
-    
-    if("Cloning Machine Controls Field" in json_level):
-        level_machines = json_level['Cloning Machines Controls Field']
-        fields.append(make_field_from_json(5, level_machines))
-
-    if("Monster Movement Field" in json_level):
-        level_monsters = json_level['Monster Movement Field']
-        fields.append(make_field_from_json(10, level_monsters))
+    # map title
+    if ("Map Title Field" in level_data):
+        map_title = level_data["Map Title Field"]
+        fields.append(make_field_from_json(3, map_title))
+    # traps
+    if ("Trap Controls Field" in level_data):
+        traps = level_data["Trap Controls Field"]
+        fields.append(make_field_from_json(4, traps))
+    # clone machines
+    if ("Cloning Machine Controls Field" in level_data):
+        clones = level_data["Cloning Machine Controls Field"]
+        fields.append(make_field_from_json(5, clones))
+    # encoded password
+    if ("Encoded Password Field" in level_data):
+        encpass = level_data["Encoded Password Field"]
+        fields.append(make_field_from_json(6, encpass))
+    # string password (not part of requirements but was in dat_utils)
+    if ("Password Field" in level_data):
+        strpass = level_data["Password Field"]
+        fields.append(make_field_from_json(8, strpass))
+    # hint
+    if ("Map Hint Field" in level_data):
+        hint = level_data["Map Hint Field"]
+        fields.append(make_field_from_json(7, hint))
+    # monsters
+    if ("Monster Movement Field" in level_data):
+        monsters = level_data["Monster Movement Field"]
+        fields.append(make_field_from_json(10, monsters))
     return fields
 
-#Creates a layer from the json data
-def make_layer_from_json(json_layer):
-    layer_data = []
-    index = 0
-    while index < len(json_layer):
-        tile = json_layer[index]
-        index += 1
-        layer_data.append(tile)
-    return layer_data
-
-#Creates level from given data
-def make_level_from_json(json_level):
+def make_level_from_json(level_data):
+    
     level = cc_data.CCLevel()
-    level.level_number = json_level["Level Number"]
-    level.time = json_level["Time Limit"]
-    level.num_chips = json_level["Chip Count"]
-    level.upper_layer = make_layer_from_json(json_level["Upper Layer"])
-    level.lower_layer = make_layer_from_json(json_level["Lower Layer"])
-    level.optional_fields = make_optional_fields_from_json(json_level["Optional Fields"])
+    level.level_number = level_data["Level Number"]
+    level.time = level_data["Time Limit"]
+    level.num_chips = level_data["Chip Count"]
+    level.upper_layer = level_data["Upper Layer"]
+    level.lower_layer = level_data["Lower Layer"]
+    # Optional fields: MapTitle, Traps, Cloning, Password, Hint, Monsters
+    level.optional_fields = make_optional_fields_from_json(level_data)
+   
+    print("Level #"+str(level_data["Level Number"])+" complete\n")
     return level
 
-    
-#Creates a cc_data file from json file
+# Creates data from json file using other functions
 def make_cc_data_from_json(json_file):
-    #Gets data from json file
     data = cc_data.CCDataFile()
-    file = open(json_file, 'r')
-    json_data = json.load(file)
-    index = 1
-    #Goes through data loaded from json file, makes levels from json
-    #and adds to a list
+    reader = open(json_file, "r")
+
+    #Open File
+    json_data = json.load(reader)
+
     for i in range(len(json_data["Level Pack"])):
-        level_heading = "Level #" + str(index)
-        chosen_lvl = json_data["Level Pack"][i]
-        level = make_level_from_json(chosen_lvl[level_heading])
+        level_key = "Level #"+str(i+1)
+       
+        level_data = json_data["Level Pack"][i][level_key]
+        level = make_level_from_json(level_data)
         data.levels.append(level)
-        index = index+1
+
+    print("cc_data Creation Complete")
     return data
